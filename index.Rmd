@@ -1,0 +1,26 @@
+---
+title: "Practical Machine Learning Project"
+author: "Megan Pender"
+date: "4/15/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+
+```{r explore data}
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r }
+
+```
+
