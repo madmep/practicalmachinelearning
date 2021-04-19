@@ -7,20 +7,91 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(caret)
+library(readr)
+library(parallel)
+library(doParallel)
+# load the data sets
+train <- read.csv('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv')
+test <- read.csv('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv')
+
+head(train)
+str(train)
+summary(train)
 ```
 
-## R Markdown
+## Can we tell how a person is performing a weight lifting move using data from wearable sensors?
+From the class documentation: "In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways."
+
+Data is from [groupware](http://groupware.les.inf.puc-rio.br/har).
+
+Our outcome variable is 'classe'. Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes.  
+
+Using the other columns of data provided can we correctly identify how the subject performed the excersize?
+We found the random forest classifier worked well with this data and achieved a 99% out of sample accuracy.
 
 
-```{r explore data}
 
+
+#### Data Exploration
+There appears to be a decent distribution among the 5 outcome classes.  
+The biggest issue seen on the first pass with the data is the number of columns with missing values.
+
+
+```{r explore data, echo=FALSE}
+# look at our outcome column distribution
+table(train$classe)
+# missing value situation
+sum(colSums(is.na(train)) > 0) # 67 columns with NAs
 ```
+### Data Cleaning
+In order to apply machine learning algorithms we need to clean up our dataset.  First we can lose the name and timestamp columns.  Then we can lose any columns with missing values.
 
-## Including Plots
+This leaves us with one outcome column, 'classe', and 52 numerical predictor columns.
 
-You can also embed plots, for example:
+```{r clean data}
+# We don't need the identifier and time columns in our data set of predictors
+x <- train %>% select(-X, -user_name, -raw_timestamp_part_1, -raw_timestamp_part_2, -cvtd_timestamp, -new_window, -num_window)
+# lose any columns with na values
+x <- x[ , colSums(is.na(x)) == 0]
+# and finally we'll get rid of columns with missing data
+x <- x[ , colSums(x == '') == 0]
+final_columns <- names(x)
+sum(colSums(is.na(x)) > 0)
+dim(x)
+# summary(x)
+```
+### Model Selection
+According to the lecture, random forest is the classification algorithm that wins competitions so that is what I tried first.  
+I used 5 cross validation folds in order to try not to overfit on the training data.
+```{r model building}
+# make a validation set
+split <- createDataPartition(x$classe, p = .8, list=FALSE)
+val <- x[-split,]
+training <- x[split, ]
+
+# 5 cross validation folds
+fitControl <- trainControl(method = "cv", number = 5, allowParallel = TRUE)
+# build the model 
+rf_model <- train(classe ~., data=training, method = 'rf', trControl = fitControl)
+
+rf_model$finalModel
+```
+### Validation and assessing model fit
+Running the model on the validation set allows us to see our out of sample error.
+It looks very good with an accuracy of 99%.
 
 ```{r }
+val$pred <- predict(rf_model, val)
+confusionMatrix(val$pred, factor(val$classe))
+table(val$pred, val$classe) # to see where misclassifications happened
+```
+## Conclusion:
+The random forest model achieved 99% accuracy which is enough to pass the class test.  The random forest model is an excellent classifier and we can identify if the users are doing the excersizes correctly or with some common mistakes.  The future of wearables can be far more qualitative.
 
+```{r }
+test$pred <- predict(rf_model, test)
+test$pred
 ```
 
